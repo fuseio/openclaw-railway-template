@@ -198,6 +198,28 @@ async function syncGatewayAuthConfig() {
   if (tokenResult.code !== 0) {
     log.warn("gateway", `failed to set auth.token (exit=${tokenResult.code})`);
   }
+
+  const trustedProxyResult = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs([
+      "config",
+      "set",
+      "--json",
+      "gateway.auth.trustedProxy",
+      JSON.stringify({
+        userHeader: "x-forwarded-user",
+        allowLoopback: true,
+      }),
+    ]),
+  );
+  if (trustedProxyResult.code === 0) {
+    log.info("gateway", "set auth.trustedProxy config");
+  } else {
+    log.warn(
+      "gateway",
+      `failed to set auth.trustedProxy (exit=${trustedProxyResult.code})`,
+    );
+  }
 }
 
 let gatewayProc = null;
@@ -256,9 +278,7 @@ async function startGateway() {
     "--port",
     String(INTERNAL_GATEWAY_PORT),
     "--auth",
-    "token",
-    "--token",
-    OPENCLAW_GATEWAY_TOKEN,
+    "trusted-proxy",
     "--allow-unconfigured",
   ];
 
@@ -1172,16 +1192,23 @@ const PROXY_ORIGIN = process.env.RAILWAY_PUBLIC_DOMAIN
   ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
   : GATEWAY_TARGET;
 
+const TRUSTED_PROXY_USER = "wrapper@openclaw.local";
+const TRUSTED_PROXY_SCOPES = "operator.admin operator.read operator.write operator.approvals operator.pairing";
+
 proxy.on("proxyReq", (proxyReq, req, res) => {
   if (!req.url?.startsWith("/hooks/")) {
     proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
   }
   proxyReq.setHeader("Origin", PROXY_ORIGIN);
+  proxyReq.setHeader("X-Forwarded-User", TRUSTED_PROXY_USER);
+  proxyReq.setHeader("X-OpenClaw-Scopes", TRUSTED_PROXY_SCOPES);
 });
 
 proxy.on("proxyReqWs", (proxyReq, req, socket, options, head) => {
   proxyReq.setHeader("Authorization", `Bearer ${OPENCLAW_GATEWAY_TOKEN}`);
   proxyReq.setHeader("Origin", PROXY_ORIGIN);
+  proxyReq.setHeader("X-Forwarded-User", TRUSTED_PROXY_USER);
+  proxyReq.setHeader("X-OpenClaw-Scopes", TRUSTED_PROXY_SCOPES);
 });
 
 app.use(async (req, res) => {
