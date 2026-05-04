@@ -170,6 +170,36 @@ async function syncAllowedOrigins() {
   }
 }
 
+async function syncGatewayAuthConfig() {
+  if (!isConfigured()) return;
+
+  const allowInsecure = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs([
+      "config",
+      "set",
+      "gateway.controlUi.allowInsecureAuth",
+      "true",
+    ]),
+  );
+  if (allowInsecure.code === 0) {
+    log.info("gateway", "set controlUi.allowInsecureAuth=true");
+  } else {
+    log.warn(
+      "gateway",
+      `failed to set controlUi.allowInsecureAuth (exit=${allowInsecure.code})`,
+    );
+  }
+
+  const tokenResult = await runCmd(
+    OPENCLAW_NODE,
+    clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]),
+  );
+  if (tokenResult.code !== 0) {
+    log.warn("gateway", `failed to set auth.token (exit=${tokenResult.code})`);
+  }
+}
+
 let gatewayProc = null;
 let gatewayStarting = null;
 let shuttingDown = false;
@@ -275,6 +305,7 @@ async function ensureGatewayRunning() {
   if (gatewayProc) return { ok: true };
   if (!gatewayStarting) {
     gatewayStarting = (async () => {
+      await syncGatewayAuthConfig();
       await syncAllowedOrigins();
       await startGateway();
       const ready = await waitForGatewayReady({ timeoutMs: 60_000 });
