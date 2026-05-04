@@ -256,9 +256,7 @@ async function startGateway() {
     "--port",
     String(INTERNAL_GATEWAY_PORT),
     "--auth",
-    "token",
-    "--token",
-    OPENCLAW_GATEWAY_TOKEN,
+    "trusted-proxy",
     "--allow-unconfigured",
   ];
 
