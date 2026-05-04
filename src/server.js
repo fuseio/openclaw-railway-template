@@ -191,12 +191,12 @@ async function syncGatewayAuthConfig() {
     );
   }
 
-  const tokenResult = await runCmd(
+  const unsetTokenResult = await runCmd(
     OPENCLAW_NODE,
-    clawArgs(["config", "set", "gateway.auth.token", OPENCLAW_GATEWAY_TOKEN]),
+    clawArgs(["config", "unset", "gateway.auth.token"]),
   );
-  if (tokenResult.code !== 0) {
-    log.warn("gateway", `failed to set auth.token (exit=${tokenResult.code})`);
+  if (unsetTokenResult.code === 0) {
+    log.info("gateway", "unset auth.token (using trusted-proxy)");
   }
 
   const trustedProxyResult = await runCmd(
@@ -282,10 +282,11 @@ async function startGateway() {
     "--allow-unconfigured",
   ];
 
+  const { OPENCLAW_GATEWAY_TOKEN: _stripToken, ...envWithoutToken } = process.env;
   gatewayProc = childProcess.spawn(OPENCLAW_NODE, clawArgs(args), {
     stdio: "inherit",
     env: {
-      ...process.env,
+      ...envWithoutToken,
       OPENCLAW_STATE_DIR: STATE_DIR,
       OPENCLAW_WORKSPACE_DIR: WORKSPACE_DIR,
     },
